@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login & Chat - Real-Time App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1e1e2f;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 500px;
+      margin: 50px auto;
+      background: #2c2f4a;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    }
+    h2 {
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    input {
+      background: #eee;
+      color: #333;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #chat-section {
+      display: none;
+    }
+    #messages {
+      list-style: none;
+      padding: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+    #messages li {
+      background: #44476a;
+      margin: 5px 0;
+      padding: 8px;
+      border-radius: 6px;
+    }
+    #typing-indicator {
+      font-size: 0.9em;
+      color: #ccc;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="login-section">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <p id="login-error" style="color: red; display: none;"></p>
+  </div>
+
+  <div class="container" id="chat-section">
+    <h2>Chat Room</h2>
+    <ul id="messages"></ul>
+    <div id="typing-indicator"></div>
+    <form id="message-form">
+      <input id="message-input" autocomplete="off" placeholder="Type a message..." />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const loginSection = document.getElementById("login-section");
+    const chatSection = document.getElementById("chat-section");
+    const errorMsg = document.getElementById("login-error");
+    const messageForm = document.getElementById("message-form");
+    const messageInput = document.getElementById("message-input");
+    const messages = document.getElementById("messages");
+    const typingIndicator = document.getElementById("typing-indicator");
+
+    let socket;
+
+    const token = localStorage.getItem("token");
+    if (token) {
+      showChat();
+    }
+
+    function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!username || !password) {
+        errorMsg.textContent = "Please fill in both fields.";
+        errorMsg.style.display = "block";
+        return;
+      }
+
+      fetch("http://localhost:3000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+            showChat();
+          } else {
+            errorMsg.textContent = data.message || "Login failed.";
+            errorMsg.style.display = "block";
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          errorMsg.textContent = "Something went wrong.";
+          errorMsg.style.display = "block";
+        });
+    }
+
+    function showChat() {
+      loginSection.style.display = "none";
+      chatSection.style.display = "block";
+
+      socket = io("http://localhost:3000", {
+        auth: {
+          token: localStorage.getItem("token")
+        }
+      });
+
+      socket.on("chat history", (data) => {
+        data.forEach(({ user, text, timestamp }) => {
+          const time = new Date(timestamp).toLocaleTimeString();
+          appendMessage(`${user}: ${text} (${time})`);
+        });
+      });
+
+      socket.on("chat message", ({ user, text, timestamp }) => {
+        const time = new Date(timestamp).toLocaleTimeString();
+        appendMessage(`${user}: ${text} (${time})`);
+      });
+
+      socket.on("user-typing", ({ user, isTyping }) => {
+        typingIndicator.textContent = isTyping ? `${user} is typing...` : "";
+      });
+
+      messageInput.addEventListener("input", () => {
+        socket.emit("typing", messageInput.value.length > 0);
+      });
+
+      messageForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (messageInput.value) {
+          socket.emit("chat message", messageInput.value);
+          messageInput.value = "";
+          socket.emit("typing", false);
+        }
+      });
+    }
+
+    function appendMessage(msg) {
+      const item = document.createElement("li");
+      item.textContent = msg;
+      messages.appendChild(item);
+      messages.scrollTop = messages.scrollHeight;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+
+
+1. Create a project folder and initialize**
+
+
+mkdir chat-app
+cd chat-app
+npm init -y
+2. Install dependencies**
+
+
+npm install express mongoose bcrypt jsonwebtoken cors socket.io dotenv
+3. Create the necessary files**
+
+
+touch server.js
+mkdir public
+cd public
+touch index.html
+cd ..
+4. Create `.env` file for environment variables (optional but recommended)**
+
+
+touch .env
+
+And add the following inside `.env`:
+
+env
+JWT_SECRET=your_secret_key
+MONGO_URI=your_mongodb_connection_string
+
+
+5. Start the server**
+
+node server.js
+
+npm install -D nodemon
+npx nodemon server.js
+6. Test the app**
+
+- Open your browser and go to:  
+  👉 `http://localhost:3000`
+
+mkdir models
+touch models/User.js
+touch models/Message.js
